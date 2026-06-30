@@ -17,21 +17,6 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate android folder if missing
-        run: |
-          if [ ! -d "android" ]; then
-            flutter create . --org com.kurd.apkapp --platforms=android --project-name kurdapk
-            rm -rf test
-          fi
-
-      - name: Archive android folder
-        run: zip -r android-folder.zip android
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: android-folder
-          path: android-folder.zip
-
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
