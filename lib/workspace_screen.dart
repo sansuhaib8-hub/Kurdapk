@@ -211,7 +211,6 @@ class _ExplorerDrawer extends StatefulWidget {
 }
 
 class _ExplorerDrawerState extends State<_ExplorerDrawer> {
-  List<String> _projects = [];
   String? _selectedProject;
   ProjectFile? _tree;
   bool _loading = false;
@@ -225,8 +224,7 @@ class _ExplorerDrawerState extends State<_ExplorerDrawer> {
 
   Future<void> _refreshProjects() async {
     final projects = await ProjectService.listProjects();
-    setState(() => _projects = projects);
-    if (projects.isNotEmpty && _selectedProject == null) {
+    if (projects.isNotEmpty) {
       await _openProject(projects.first);
     }
   }
