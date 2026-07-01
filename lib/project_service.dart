@@ -23,7 +23,7 @@ class ProjectService {
   /// دەگەڕێتەوە: مانای سەرکەوتن یان هەڵە بە دەق
   static Future<String> importFromGitHub(String repoUrl, {String branch = 'main'}) async {
     try {
-      final cleaned = repoUrl.trim().replaceAll(RegExp(r'\.git$'), '').replaceAll(RegExp(r'/$'), '');
+      final cleaned = repoUrl.replaceAll(RegExp(r'\s+'), '').replaceAll(RegExp(r'\.git$'), '').replaceAll(RegExp(r'/$'), '');
       final match = RegExp(r'github\.com/([^/]+)/([^/]+)').firstMatch(cleaned);
       if (match == null) return 'هەڵە: لینکی GitHub دروست نییە';
 
