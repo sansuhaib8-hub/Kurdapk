@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
+import 'terminal_panel.dart';
 
 class WorkspaceScreen extends StatefulWidget {
   const WorkspaceScreen({super.key});
@@ -31,7 +32,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                     ],
                   ),
                 ),
-                _TerminalPanel(
+                LiveTerminalPanel(
                   expanded: terminalExpanded,
                   onToggle: () => setState(() => terminalExpanded = !terminalExpanded),
                 ),
@@ -346,62 +347,6 @@ class _EditorArea extends StatelessWidget {
   }
 }
 
-class _TerminalPanel extends StatelessWidget {
-  final bool expanded;
-  final VoidCallback onToggle;
-  const _TerminalPanel({required this.expanded, required this.onToggle});
-  static const _lines = [
-    '~/2R2H ❯ flutter analyze',
-    'Analyzing 2R2H...',
-    '✓ No fatal issues found (1 warning)',
-    '~/2R2H ❯ git push origin feature/onDisconnect-fix',
-    '✓ Push complete · GitHub Actions building…',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-      height: expanded ? 220 : 34,
-      decoration: BoxDecoration(color: AppColors.bg1.withOpacity(0.97), border: const Border(top: BorderSide(color: AppColors.borderStrong))),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: onToggle,
-            child: Container(
-              height: 34,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  Icon(expanded ? Icons.expand_more : Icons.expand_less, size: 14, color: AppColors.textSecondary),
-                  const SizedBox(width: 6),
-                  const Text('Terminal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: AppColors.green.withOpacity(0.08), border: Border.all(color: AppColors.green.withOpacity(0.3)), borderRadius: BorderRadius.circular(6)),
-                    child: const Text('flutter', style: TextStyle(fontSize: 9, color: AppColors.green)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (expanded)
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-                children: _lines.map((l) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text(l, style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: AppColors.textSecondary)),
-                )).toList(),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
 
 class _AiPanel extends StatelessWidget {
   final VoidCallback onClose;
