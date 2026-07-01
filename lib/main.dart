@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
-import 'shell_test_screen.dart';
+import 'workspace_screen.dart';
 
 void main() {
   runApp(const ForgeApp());
@@ -14,7 +14,7 @@ class ForgeApp extends StatelessWidget {
       title: 'Forge',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      home: const ShellTestScreen(),
+      home: const WorkspaceScreen(),
     );
   }
 }
