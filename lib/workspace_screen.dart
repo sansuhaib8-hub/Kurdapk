@@ -34,6 +34,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                       _SidebarRail(
                         onExplorerTap: () => setState(() => explorerOpen = !explorerOpen),
                         onCmdTap: () => setState(() => cmdkOpen = true),
+                        onAiTap: () => setState(() => aiOpen = !aiOpen),
                       ),
                       Expanded(
                         child: _EditorArea(filePath: openFilePath, fileName: openFileName),
@@ -74,10 +75,6 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
               right: aiOpen ? 0 : -340,
               width: 340,
               child: _AiPanel(onClose: () => setState(() => aiOpen = false)),
-            ),
-            Positioned(
-              right: 14, bottom: 14,
-              child: _AiFab(onTap: () => setState(() => aiOpen = !aiOpen)),
             ),
             if (cmdkOpen) _CommandPaletteOverlay(onClose: () => setState(() => cmdkOpen = false)),
           ],
@@ -156,7 +153,8 @@ class _TopBar extends StatelessWidget {
 class _SidebarRail extends StatelessWidget {
   final VoidCallback onExplorerTap;
   final VoidCallback onCmdTap;
-  const _SidebarRail({required this.onExplorerTap, required this.onCmdTap});
+  final VoidCallback onAiTap;
+  const _SidebarRail({required this.onExplorerTap, required this.onCmdTap, required this.onAiTap});
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -178,6 +176,7 @@ class _SidebarRail extends StatelessWidget {
           _railIcon(Icons.settings_outlined, onTap: () {}),
           _divider(),
           _railIcon(Icons.auto_awesome, onTap: onCmdTap),
+          _railIcon(Icons.smart_toy_outlined, onTap: onAiTap),
         ],
       ),
     );
@@ -735,24 +734,6 @@ class _AiPanel extends StatelessWidget {
   }
 }
 
-class _AiFab extends StatelessWidget {
-  final VoidCallback onTap;
-  const _AiFab({required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        width: 50, height: 50,
-        decoration: BoxDecoration(gradient: AppColors.gradient, borderRadius: BorderRadius.circular(18), boxShadow: [
-          BoxShadow(color: AppColors.violet.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8)),
-        ]),
-        child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
-      ),
-    );
-  }
-}
 
 class _CommandPaletteOverlay extends StatelessWidget {
   final VoidCallback onClose;
