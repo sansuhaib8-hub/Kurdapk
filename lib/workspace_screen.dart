@@ -27,7 +27,10 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      _SidebarRail(onExplorerTap: () => setState(() => explorerOpen = !explorerOpen)),
+                      _SidebarRail(
+                        onExplorerTap: () => setState(() => explorerOpen = !explorerOpen),
+                        onCmdTap: () => setState(() => cmdkOpen = true),
+                      ),
                       const Expanded(child: _EditorArea()),
                     ],
                   ),
@@ -64,10 +67,6 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
             Positioned(
               right: 14, bottom: 14,
               child: _AiFab(onTap: () => setState(() => aiOpen = !aiOpen)),
-            ),
-            Positioned(
-              left: 14, bottom: 14,
-              child: _CmdFab(onTap: () => setState(() => cmdkOpen = true)),
             ),
             if (cmdkOpen) _CommandPaletteOverlay(onClose: () => setState(() => cmdkOpen = false)),
           ],
@@ -145,7 +144,8 @@ class _TopBar extends StatelessWidget {
 
 class _SidebarRail extends StatelessWidget {
   final VoidCallback onExplorerTap;
-  const _SidebarRail({required this.onExplorerTap});
+  final VoidCallback onCmdTap;
+  const _SidebarRail({required this.onExplorerTap, required this.onCmdTap});
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -165,6 +165,8 @@ class _SidebarRail extends StatelessWidget {
           _divider(),
           _railIcon(Icons.star_border, onTap: () {}),
           _railIcon(Icons.settings_outlined, onTap: () {}),
+          _divider(),
+          _railIcon(Icons.auto_awesome, onTap: onCmdTap),
         ],
       ),
     );
@@ -450,26 +452,6 @@ class _AiFab extends StatelessWidget {
   }
 }
 
-class _CmdFab extends StatelessWidget {
-  final VoidCallback onTap;
-  const _CmdFab({required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(13),
-      child: Container(
-        height: 38,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(color: AppColors.bg1.withOpacity(0.85), border: Border.all(color: AppColors.borderStrong), borderRadius: BorderRadius.circular(13)),
-        child: const Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.auto_awesome, size: 13, color: AppColors.blue),
-          SizedBox(width: 7),
-          Text('Ask AI or run a command', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-        ]),
-      ),
-    );
-  }
 }
 
 class _CommandPaletteOverlay extends StatelessWidget {
