@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'theme.dart';
 import 'terminal_panel.dart';
 import 'project_service.dart';
@@ -14,6 +15,8 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   bool aiOpen = false;
   bool terminalExpanded = true;
   bool cmdkOpen = false;
+  String? openFilePath;
+  String? openFileName;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +35,9 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                         onExplorerTap: () => setState(() => explorerOpen = !explorerOpen),
                         onCmdTap: () => setState(() => cmdkOpen = true),
                       ),
-                      const Expanded(child: _EditorArea()),
+                      Expanded(
+                        child: _EditorArea(filePath: openFilePath, fileName: openFileName),
+                      ),
                     ],
                   ),
                 ),
@@ -55,7 +60,12 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
               top: 0, bottom: 0,
               left: explorerOpen ? 0 : -260,
               width: 260,
-              child: const _ExplorerDrawer(),
+              child: _ExplorerDrawer(
+                onFileOpen: (path, name) => setState(() {
+                  openFilePath = path;
+                  openFileName = name;
+                }),
+              ),
             ),
             AnimatedPositioned(
               duration: const Duration(milliseconds: 300),
@@ -205,7 +215,8 @@ class _SidebarRail extends StatelessWidget {
 }
 
 class _ExplorerDrawer extends StatefulWidget {
-  const _ExplorerDrawer();
+  final void Function(String path, String name) onFileOpen;
+  const _ExplorerDrawer({required this.onFileOpen});
   @override
   State<_ExplorerDrawer> createState() => _ExplorerDrawerState();
 }
@@ -215,6 +226,7 @@ class _ExplorerDrawerState extends State<_ExplorerDrawer> {
   ProjectFile? _tree;
   bool _loading = false;
   String? _statusMessage;
+  String? _openPath;
 
   @override
   void initState() {
@@ -360,26 +372,41 @@ class _ExplorerDrawerState extends State<_ExplorerDrawer> {
     final widgets = <Widget>[];
     for (final node in nodes) {
       widgets.add(
-        Container(
-          margin: const EdgeInsets.only(bottom: 2),
-          padding: EdgeInsets.fromLTRB(8.0 + depth * 14, 6, 8, 6),
-          child: Row(
-            children: [
-              Icon(node.isDirectory ? Icons.folder : Icons.insert_drive_file,
-                  size: 13, color: node.isDirectory ? AppColors.textPrimary : AppColors.textSecondary),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  node.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: node.isDirectory ? AppColors.textPrimary : AppColors.textSecondary,
-                    fontWeight: node.isDirectory ? FontWeight.w500 : FontWeight.normal,
+        InkWell(
+          onTap: node.isDirectory
+              ? null
+              : () {
+                  setState(() => _openPath = node.path);
+                  widget.onFileOpen(node.path, node.name);
+                },
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 2),
+            padding: EdgeInsets.fromLTRB(8.0 + depth * 14, 6, 8, 6),
+            decoration: BoxDecoration(
+              color: (!node.isDirectory && node.path == _openPath) ? AppColors.blue.withOpacity(0.14) : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Icon(node.isDirectory ? Icons.folder : Icons.insert_drive_file,
+                    size: 13, color: node.isDirectory ? AppColors.textPrimary : AppColors.textSecondary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    node.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: (!node.isDirectory && node.path == _openPath)
+                          ? AppColors.blue
+                          : (node.isDirectory ? AppColors.textPrimary : AppColors.textSecondary),
+                      fontWeight: node.isDirectory ? FontWeight.w500 : FontWeight.normal,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
@@ -391,8 +418,53 @@ class _ExplorerDrawerState extends State<_ExplorerDrawer> {
   }
 }
 
-class _EditorArea extends StatelessWidget {
-  const _EditorArea();
+class _EditorArea extends StatefulWidget {
+  final String? filePath;
+  final String? fileName;
+  const _EditorArea({this.filePath, this.fileName});
+  @override
+  State<_EditorArea> createState() => _EditorAreaState();
+}
+
+class _EditorAreaState extends State<_EditorArea> {
+  String _content = '';
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void didUpdateWidget(covariant _EditorArea old) {
+    super.didUpdateWidget(old);
+    if (widget.filePath != old.filePath && widget.filePath != null) {
+      _loadFile(widget.filePath!);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.filePath != null) _loadFile(widget.filePath!);
+  }
+
+  Future<void> _loadFile(String path) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final file = File(path);
+      final text = await file.readAsString();
+      setState(() {
+        _content = text;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'ناتوانرێت فایل بخوێنرێتەوە: $e';
+        _loading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -402,9 +474,7 @@ class _EditorArea extends StatelessWidget {
           decoration: const BoxDecoration(color: AppColors.bg1, border: Border(bottom: BorderSide(color: AppColors.border))),
           child: Row(
             children: [
-              _tab('login_screen.dart', active: true, modified: true),
-              _tab('firebase_service.dart'),
-              _tab('main.dart'),
+              _tab(widget.fileName ?? 'هیچ فایلێک نەکراوەتەوە', active: true, modified: false),
             ],
           ),
         ),
@@ -412,17 +482,21 @@ class _EditorArea extends StatelessWidget {
           child: Container(
             color: AppColors.bg0,
             padding: const EdgeInsets.all(12),
-            child: const SingleChildScrollView(
-              child: Text(
-                'class LoginScreen extends StatefulWidget {\n'
-                '  const LoginScreen({super.key});\n\n'
-                '  @override\n'
-                '  State<LoginScreen> createState() => _LoginScreenState();\n'
-                '}\n\n'
-                '// TODO: دواتر CodeMirror editor ڕاستی لێرە دادەمەزرێنین',
-                style: TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.6, color: AppColors.textSecondary),
-              ),
-            ),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.blue))
+                : _error != null
+                    ? Text(_error!, style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFFFF6B6B)))
+                    : widget.filePath == null
+                        ? const Text(
+                            'فایلێک هەڵبژێرە لە Explorer بۆ کردنەوەی.',
+                            style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: AppColors.textTertiary),
+                          )
+                        : SingleChildScrollView(
+                            child: SelectableText(
+                              _content,
+                              style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.6, color: AppColors.textSecondary),
+                            ),
+                          ),
           ),
         ),
       ],
