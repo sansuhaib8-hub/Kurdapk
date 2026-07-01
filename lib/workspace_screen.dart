@@ -452,8 +452,6 @@ class _AiFab extends StatelessWidget {
   }
 }
 
-}
-
 class _CommandPaletteOverlay extends StatelessWidget {
   final VoidCallback onClose;
   const _CommandPaletteOverlay({required this.onClose});
