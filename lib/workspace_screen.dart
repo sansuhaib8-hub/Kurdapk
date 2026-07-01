@@ -427,9 +427,30 @@ class _EditorArea extends StatefulWidget {
 }
 
 class _EditorAreaState extends State<_EditorArea> {
-  String _content = '';
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
   bool _loading = false;
+  bool _saving = false;
   String? _error;
+  bool _modified = false;
+  String _originalContent = '';
+
+  static const List<String> _symbols = [
+    '{', '}', '(', ')', '[', ']', ';', ':', '"', "'", '=', '<', '>', '/', '\\', '|', '&', '_', '-', '+', '\$',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() {
+      final changed = _controller.text != _originalContent;
+      if (changed != _modified) setState(() => _modified = changed);
+    });
+    _focusNode.addListener(() {
+      setState(() {});
+    });
+    if (widget.filePath != null) _loadFile(widget.filePath!);
+  }
 
   @override
   void didUpdateWidget(covariant _EditorArea old) {
@@ -440,9 +461,10 @@ class _EditorAreaState extends State<_EditorArea> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.filePath != null) _loadFile(widget.filePath!);
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadFile(String path) async {
@@ -454,7 +476,9 @@ class _EditorAreaState extends State<_EditorArea> {
       final file = File(path);
       final text = await file.readAsString();
       setState(() {
-        _content = text;
+        _controller.text = text;
+        _originalContent = text;
+        _modified = false;
         _loading = false;
       });
     } catch (e) {
@@ -463,6 +487,46 @@ class _EditorAreaState extends State<_EditorArea> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _saveFile() async {
+    if (widget.filePath == null) return;
+    setState(() => _saving = true);
+    try {
+      final file = File(widget.filePath!);
+      await file.writeAsString(_controller.text);
+      setState(() {
+        _originalContent = _controller.text;
+        _modified = false;
+        _saving = false;
+      });
+    } catch (e) {
+      setState(() => _saving = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('هەڵە لە پاشەکەوتکردن: $e')),
+        );
+      }
+    }
+  }
+
+  void _insertAtCursor(String text) {
+    final sel = _controller.selection;
+    final t = _controller.text;
+    final start = sel.start >= 0 ? sel.start : t.length;
+    final end = sel.end >= 0 ? sel.end : t.length;
+    final newText = t.replaceRange(start, end, text);
+    _controller.text = newText;
+    _controller.selection = TextSelection.collapsed(offset: start + text.length);
+  }
+
+  void _moveCursor(int offsetDelta) {
+    final t = _controller.text;
+    final sel = _controller.selection;
+    var pos = (sel.baseOffset >= 0 ? sel.baseOffset : t.length) + offsetDelta;
+    if (pos < 0) pos = 0;
+    if (pos > t.length) pos = t.length;
+    _controller.selection = TextSelection.collapsed(offset: pos);
   }
 
   @override
@@ -474,31 +538,95 @@ class _EditorAreaState extends State<_EditorArea> {
           decoration: const BoxDecoration(color: AppColors.bg1, border: Border(bottom: BorderSide(color: AppColors.border))),
           child: Row(
             children: [
-              _tab(widget.fileName ?? 'هیچ فایلێک نەکراوەتەوە', active: true, modified: false),
+              Expanded(child: _tab(widget.fileName ?? 'هیچ فایلێک نەکراوەتەوە', active: true, modified: _modified)),
+              if (widget.filePath != null)
+                InkWell(
+                  onTap: _saving ? null : _saveFile,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: _saving
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.blue))
+                        : Icon(Icons.save, size: 16, color: _modified ? AppColors.blue : AppColors.textTertiary),
+                  ),
+                ),
             ],
           ),
         ),
         Expanded(
-          child: Container(
-            color: AppColors.bg0,
-            padding: const EdgeInsets.all(12),
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.blue))
-                : _error != null
-                    ? Text(_error!, style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFFFF6B6B)))
-                    : widget.filePath == null
-                        ? const Text(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.blue))
+              : _error != null
+                  ? Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(_error!, style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFFFF6B6B))),
+                    )
+                  : widget.filePath == null
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Text(
                             'فایلێک هەڵبژێرە لە Explorer بۆ کردنەوەی.',
                             style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: AppColors.textTertiary),
-                          )
-                        : SingleChildScrollView(
-                            child: SelectableText(
-                              _content,
-                              style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.6, color: AppColors.textSecondary),
+                          ),
+                        )
+                      : Container(
+                          color: AppColors.bg0,
+                          child: TextField(
+                            controller: _controller,
+                            focusNode: _focusNode,
+                            maxLines: null,
+                            expands: true,
+                            textAlignVertical: TextAlignVertical.top,
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.6, color: AppColors.textSecondary),
+                            cursorColor: AppColors.blue,
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.all(12),
                             ),
                           ),
-          ),
+                        ),
         ),
+        if (widget.filePath != null && _focusNode.hasFocus)
+          Container(
+            height: 40,
+            color: AppColors.bg1,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.keyboard_tab, size: 16, color: AppColors.textSecondary),
+                  onPressed: () => _insertAtCursor('  '),
+                  tooltip: 'Tab',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.keyboard_arrow_left, size: 18, color: AppColors.textSecondary),
+                  onPressed: () => _moveCursor(-1),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.keyboard_arrow_right, size: 18, color: AppColors.textSecondary),
+                  onPressed: () => _moveCursor(1),
+                ),
+                Container(width: 1, height: 20, color: AppColors.border, margin: const EdgeInsets.symmetric(horizontal: 4)),
+                Expanded(
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: _symbols
+                        .map((s) => InkWell(
+                              onTap: () => _insertAtCursor(s),
+                              child: Container(
+                                width: 34,
+                                alignment: Alignment.center,
+                                child: Text(s, style: const TextStyle(fontFamily: 'monospace', fontSize: 15, color: AppColors.textPrimary)),
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.keyboard_hide, size: 18, color: AppColors.textSecondary),
+                  onPressed: () => _focusNode.unfocus(),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -506,7 +634,7 @@ class _EditorAreaState extends State<_EditorArea> {
   Widget _tab(String name, {bool active = false, bool modified = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: Alignment.center,
+      alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         color: active ? AppColors.bg0 : Colors.transparent,
         border: Border(
@@ -516,7 +644,7 @@ class _EditorAreaState extends State<_EditorArea> {
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Container(width: 7, height: 7, margin: const EdgeInsets.only(right: 6), decoration: BoxDecoration(color: const Color(0xFF54C5F8), borderRadius: BorderRadius.circular(2))),
-        Text(name, style: TextStyle(fontSize: 11.5, color: active ? AppColors.textPrimary : AppColors.textTertiary)),
+        Flexible(child: Text(name, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: active ? AppColors.textPrimary : AppColors.textTertiary))),
         if (modified) Container(width: 6, height: 6, margin: const EdgeInsets.only(left: 6), decoration: const BoxDecoration(color: AppColors.amber, shape: BoxShape.circle)),
       ]),
     );
