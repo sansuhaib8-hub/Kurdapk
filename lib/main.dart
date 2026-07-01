@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
-import 'workspace_screen.dart';
 import 'shell_test_screen.dart';
 
 void main() {
