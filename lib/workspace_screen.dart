@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'terminal_panel.dart';
+import 'project_service.dart';
 
 class WorkspaceScreen extends StatefulWidget {
   const WorkspaceScreen({super.key});
@@ -203,20 +204,84 @@ class _SidebarRail extends StatelessWidget {
   }
 }
 
-class _ExplorerDrawer extends StatelessWidget {
+class _ExplorerDrawer extends StatefulWidget {
   const _ExplorerDrawer();
-  static const _files = [
-    _TreeItem('📂 lib', isFolder: true, indent: 0),
-    _TreeItem('📂 screens', isFolder: true, indent: 1),
-    _TreeItem('📄 login_screen.dart', indent: 2, active: true, gitTag: 'M'),
-    _TreeItem('📄 online_game_screen.dart', indent: 2),
-    _TreeItem('📂 services', isFolder: true, indent: 1),
-    _TreeItem('📄 firebase_service.dart', indent: 2, gitTag: 'A'),
-    _TreeItem('📄 main.dart', indent: 1),
-    _TreeItem('📂 .github/workflows', isFolder: true, indent: 0),
-    _TreeItem('📄 build.yml', indent: 1),
-    _TreeItem('📄 pubspec.yaml', indent: 0, fav: true),
-  ];
+  @override
+  State<_ExplorerDrawer> createState() => _ExplorerDrawerState();
+}
+
+class _ExplorerDrawerState extends State<_ExplorerDrawer> {
+  List<String> _projects = [];
+  String? _selectedProject;
+  ProjectFile? _tree;
+  bool _loading = false;
+  String? _statusMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshProjects();
+  }
+
+  Future<void> _refreshProjects() async {
+    final projects = await ProjectService.listProjects();
+    setState(() => _projects = projects);
+    if (projects.isNotEmpty && _selectedProject == null) {
+      await _openProject(projects.first);
+    }
+  }
+
+  Future<void> _openProject(String name) async {
+    final tree = await ProjectService.buildTree(name);
+    setState(() {
+      _selectedProject = name;
+      _tree = tree;
+    });
+  }
+
+  Future<void> _showImportDialog() async {
+    final controller = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bg1,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('هێنانی پڕۆژە', style: TextStyle(color: AppColors.textPrimary, fontSize: 15)),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'https://github.com/user/repo',
+            hintStyle: const TextStyle(color: AppColors.textTertiary, fontSize: 12),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.blue)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('پاشگەزبوونەوە', style: TextStyle(color: AppColors.textTertiary))),
+          TextButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('هێنان', style: TextStyle(color: AppColors.blue))),
+        ],
+      ),
+    );
+
+    if (url == null || url.trim().isEmpty) return;
+
+    setState(() {
+      _loading = true;
+      _statusMessage = 'داگرتن...';
+    });
+
+    final result = await ProjectService.importFromGitHub(url);
+
+    setState(() {
+      _loading = false;
+      _statusMessage = result == 'سەرکەوتوو' ? null : result;
+    });
+
+    if (result == 'سەرکەوتوو') {
+      await _refreshProjects();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +297,24 @@ class _ExplorerDrawer extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('EXPLORER · 2R2H', style: TextStyle(fontSize: 10, letterSpacing: 1, color: AppColors.textTertiary, fontWeight: FontWeight.w600)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _selectedProject != null ? 'EXPLORER · $_selectedProject' : 'EXPLORER',
+                        style: const TextStyle(fontSize: 10, letterSpacing: 1, color: AppColors.textTertiary, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: _loading ? null : _showImportDialog,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(Icons.add, size: 16, color: _loading ? AppColors.textTertiary : AppColors.blue),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
@@ -247,47 +329,67 @@ class _ExplorerDrawer extends StatelessWidget {
             ),
           ),
           const Divider(height: 1, color: AppColors.border),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(8),
-              children: _files.map((f) => f.build()).toList(),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.blue)),
             ),
+          if (_statusMessage != null)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(_statusMessage!, style: const TextStyle(fontSize: 11, color: Color(0xFFFF6B6B))),
+            ),
+          Expanded(
+            child: _tree == null
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'هیچ پڕۆژەیەک نییە.\nکرتە لە + بکە بۆ هێنانی پڕۆژە لە GitHub.',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                    ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.all(8),
+                    children: _buildTreeWidgets(_tree!.children, 0),
+                  ),
           ),
         ],
       ),
     );
   }
-}
 
-class _TreeItem {
-  final String label;
-  final bool isFolder;
-  final int indent;
-  final bool active;
-  final bool fav;
-  final String? gitTag;
-  const _TreeItem(this.label, {this.isFolder = false, this.indent = 0, this.active = false, this.fav = false, this.gitTag});
-
-  Widget build() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 2),
-      padding: EdgeInsets.fromLTRB(8.0 + indent * 14, 6, 8, 6),
-      decoration: BoxDecoration(
-        color: active ? AppColors.blue.withOpacity(0.14) : Colors.transparent,
-        borderRadius: BorderRadius.circular(7),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(label, overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12.5, color: active ? AppColors.blue : (isFolder ? AppColors.textPrimary : AppColors.textSecondary), fontWeight: isFolder ? FontWeight.w500 : FontWeight.normal)),
+  List<Widget> _buildTreeWidgets(List<ProjectFile> nodes, int depth) {
+    final widgets = <Widget>[];
+    for (final node in nodes) {
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 2),
+          padding: EdgeInsets.fromLTRB(8.0 + depth * 14, 6, 8, 6),
+          child: Row(
+            children: [
+              Icon(node.isDirectory ? Icons.folder : Icons.insert_drive_file,
+                  size: 13, color: node.isDirectory ? AppColors.textPrimary : AppColors.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  node.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: node.isDirectory ? AppColors.textPrimary : AppColors.textSecondary,
+                    fontWeight: node.isDirectory ? FontWeight.w500 : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ],
           ),
-          if (fav) const Icon(Icons.star, size: 11, color: AppColors.amber),
-          if (gitTag != null)
-            Text(gitTag!, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: gitTag == 'M' ? AppColors.amber : AppColors.green)),
-        ],
-      ),
-    );
+        ),
+      );
+      if (node.isDirectory && node.children.isNotEmpty) {
+        widgets.addAll(_buildTreeWidgets(node.children, depth + 1));
+      }
+    }
+    return widgets;
   }
 }
 
