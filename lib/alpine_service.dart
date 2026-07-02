@@ -104,7 +104,7 @@ class AlpineService {
           '--kill-on-exit',
           '/bin/sh', '-c', '$pathSetup $cmd',
         ],
-        environment: {'PROOT_TMP_DIR': tmpPath},
+        environment: {'PROOT_TMP_DIR': tmpPath, 'PROOT_NO_SECCOMP': '1'},
       );
       final out = (result.stdout?.toString() ?? '') + (result.stderr?.toString() ?? '');
       return out.isEmpty ? '(هیچ دەرچوویەک نەبوو)' : out;
