@@ -12,20 +12,27 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == "runCommand") {
-                val cmd = call.argument<String>("cmd") ?: "echo no command"
-                try {
-                    val process = ProcessBuilder("/system/bin/sh", "-c", cmd)
-                        .redirectErrorStream(true)
-                        .start()
-                    val output = BufferedReader(InputStreamReader(process.inputStream)).readText()
-                    process.waitFor()
-                    result.success(output)
-                } catch (e: Exception) {
-                    result.error("SHELL_ERROR", e.message, null)
+            when (call.method) {
+                "runCommand" -> {
+                    val cmd = call.argument<String>("cmd") ?: "echo no command"
+                    try {
+                        val process = ProcessBuilder("/system/bin/sh", "-c", cmd)
+                            .redirectErrorStream(true)
+                            .start()
+                        val output = BufferedReader(InputStreamReader(process.inputStream)).readText()
+                        process.waitFor()
+                        result.success(output)
+                    } catch (e: Exception) {
+                        result.error("SHELL_ERROR", e.message, null)
+                    }
                 }
-            } else {
-                result.notImplemented()
+                "getNativeLibraryDir" -> {
+                    result.success(applicationInfo.nativeLibraryDir)
+                }
+                "getFilesDir" -> {
+                    result.success(filesDir.absolutePath)
+                }
+                else -> result.notImplemented()
             }
         }
     }
